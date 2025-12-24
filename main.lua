@@ -1,9 +1,10 @@
--- ScriptPlayground v3
--- Fully Local LocalScript
+-- ScriptPlayground v3.2
+-- Fully Local, MacSploit-safe, with console
 
 --// SERVICES
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -37,6 +38,9 @@ local function round(obj, r)
 	c.Parent = obj
 end
 
+-- Cache loadstring safely (works in Raptor.Thread / MacSploit)
+local SAFE_LOADSTRING = loadstring or (getgenv and getgenv().loadstring)
+
 --// GUI ROOT
 local gui = Instance.new("ScreenGui")
 gui.Name = "ScriptPlayground"
@@ -45,11 +49,11 @@ gui.Parent = playerGui
 
 --// MAIN WINDOW
 local main = Instance.new("Frame")
-main.Size = UDim2.fromOffset(620, 440)
-main.Position = UDim2.fromScale(0.5, 0.5) - UDim2.fromOffset(310, 220)
+main.Size = UDim2.fromOffset(620, 500)
+main.Position = UDim2.fromScale(0.5, 0.5) - UDim2.fromOffset(310, 250)
 main.BackgroundColor3 = Theme.Base
-main.Parent = gui
 main.ClipsDescendants = true
+main.Parent = gui
 round(main, 14)
 
 local stroke = Instance.new("UIStroke")
@@ -93,7 +97,7 @@ end)
 --// EDITOR CONTAINER
 local editor = Instance.new("Frame")
 editor.Position = UDim2.fromOffset(10, 46)
-editor.Size = UDim2.new(1, -20, 1, -96)
+editor.Size = UDim2.new(1, -20, 0, 300)
 editor.BackgroundColor3 = Theme.Crust
 editor.Parent = main
 editor.ClipsDescendants = true
@@ -149,10 +153,7 @@ local keywords = {
 }
 
 local function color(text, c)
-	return string.format(
-		'<font color="rgb(%d,%d,%d)">%s</font>',
-		c.R*255, c.G*255, c.B*255, text
-	)
+	return string.format('<font color="rgb(%d,%d,%d)">%s</font>', c.R*255, c.G*255, c.B*255, text)
 end
 
 local function highlightLua(src)
@@ -172,7 +173,6 @@ end
 local function update()
 	local text = input.Text
 	highlight.Text = highlightLua(text)
-
 	local count = select(2, text:gsub("\n", "")) + 1
 	local nums = {}
 	for i = 1, count do nums[i] = tostring(i) end
@@ -182,104 +182,142 @@ end
 input:GetPropertyChangedSignal("Text"):Connect(update)
 update()
 
+--// OUTPUT CONSOLE
+local console = Instance.new("TextLabel")
+console.Size = UDim2.new(1, -20, 0, 130)
+console.Position = UDim2.fromOffset(10, 360)
+console.BackgroundColor3 = Theme.Surface0
+console.TextColor3 = Theme.Text
+console.TextXAlignment = Enum.TextXAlignment.Left
+console.TextYAlignment = Enum.TextYAlignment.Top
+console.TextWrapped = true
+console.RichText = true
+console.Font = Enum.Font.Code
+console.TextSize = 14
+console.Text = ""
+console.Parent = main
+round(console, 6)
+
+local function printConsole(...)
+	local msgs = {}
+	for i,v in ipairs({...}) do msgs[#msgs+1] = tostring(v) end
+	console.Text = table.concat(msgs,"\t") .. "\n" .. console.Text
+end
+
+--// RUN BUTTON
+local runButton = Instance.new("TextButton")
+runButton.Size = UDim2.fromOffset(100, 30)
+runButton.Position = UDim2.new(1, -110, 0, 10)
+runButton.BackgroundColor3 = Theme.Green
+runButton.Text = "Run"
+runButton.Font = Enum.Font.SourceSansBold
+runButton.TextSize = 16
+runButton.TextColor3 = Theme.Text
+runButton.Parent = main
+round(runButton, 6)
+
+runButton.MouseButton1Click:Connect(function()
+	if not SAFE_LOADSTRING then
+		printConsole("loadstring not available in this thread")
+		return
+	end
+	local fn, err = SAFE_LOADSTRING(input.Text)
+	if not fn then
+		printConsole("Compile error: "..tostring(err))
+		return
+	end
+	local ok, res = pcall(fn)
+	if not ok then
+		printConsole("Runtime error: "..tostring(res))
+	else
+		printConsole("Executed successfully")
+	end
+end)
+
 --// DRAGGING
 do
-	local dragging = false
-	local startMouse
-	local startPos
-
+	local dragging=false
+	local startMouse, startPos
 	title.InputBegan:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = true
-			startMouse = i.Position
-			startPos = main.Position
+			dragging=true
+			startMouse=i.Position
+			startPos=main.Position
 		end
 	end)
-
 	UIS.InputChanged:Connect(function(i)
 		if dragging and i.UserInputType == Enum.UserInputType.MouseMovement then
 			local delta = i.Position - startMouse
 			main.Position = startPos + UDim2.fromOffset(delta.X, delta.Y)
 		end
 	end)
-
 	UIS.InputEnded:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			dragging = false
+			dragging=false
 		end
 	end)
 end
 
---// RESIZING SYSTEM
-local function resizeHandle(size, pos, onDrag)
-	local h = Instance.new("Frame")
-	h.Size = size
-	h.Position = pos
-	h.BackgroundTransparency = 1
-	h.Active = true
-	h.Parent = main
+--// RESIZING
+local function resizeHandle(size,pos,fn)
+	local h=Instance.new("Frame")
+	h.Size=size
+	h.Position=pos
+	h.BackgroundTransparency=1
+	h.Active=true
+	h.Parent=main
 
-	local resizing = false
+	local resizing=false
 	local startMouse, startSize, startPos
-
 	h.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			resizing = true
-			startMouse = i.Position
-			startSize = main.Size
-			startPos = main.Position
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			resizing=true
+			startMouse=i.Position
+			startSize=main.Size
+			startPos=main.Position
 		end
 	end)
-
 	UIS.InputChanged:Connect(function(i)
-		if resizing and i.UserInputType == Enum.UserInputType.MouseMovement then
-			onDrag(i.Position - startMouse, startSize, startPos)
+		if resizing and i.UserInputType==Enum.UserInputType.MouseMovement then
+			fn(i.Position-startMouse,startSize,startPos)
 		end
 	end)
-
 	UIS.InputEnded:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			resizing = false
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			resizing=false
 		end
 	end)
 end
 
--- Right
+-- right
 resizeHandle(UDim2.new(0,6,1,-20), UDim2.new(1,-3,0,10), function(d,s)
-	main.Size = UDim2.fromOffset(math.max(MIN_WIDTH, s.X.Offset+d.X), s.Y.Offset)
+	main.Size=UDim2.fromOffset(math.max(MIN_WIDTH,s.X.Offset+d.X),s.Y.Offset)
 end)
-
--- Bottom
+-- bottom
 resizeHandle(UDim2.new(1,-20,0,6), UDim2.new(0,10,1,-3), function(d,s)
-	main.Size = UDim2.fromOffset(s.X.Offset, math.max(MIN_HEIGHT, s.Y.Offset+d.Y))
+	main.Size=UDim2.fromOffset(s.X.Offset, math.max(MIN_HEIGHT,s.Y.Offset+d.Y))
 end)
-
--- Left
+-- left
 resizeHandle(UDim2.new(0,6,1,-20), UDim2.new(0,-3,0,10), function(d,s,p)
-	local w = math.max(MIN_WIDTH, s.X.Offset-d.X)
-	main.Size = UDim2.fromOffset(w, s.Y.Offset)
-	main.Position = p + UDim2.fromOffset(s.X.Offset-w,0)
+	local w=math.max(MIN_WIDTH,s.X.Offset-d.X)
+	main.Size=UDim2.fromOffset(w,s.Y.Offset)
+	main.Position=p+UDim2.fromOffset(s.X.Offset-w,0)
 end)
-
--- Top
+-- top
 resizeHandle(UDim2.new(1,-20,0,6), UDim2.new(0,10,0,-3), function(d,s,p)
-	local h = math.max(MIN_HEIGHT, s.Y.Offset-d.Y)
-	main.Size = UDim2.fromOffset(s.X.Offset, h)
-	main.Position = p + UDim2.fromOffset(0, s.Y.Offset-h)
+	local h=math.max(MIN_HEIGHT,s.Y.Offset-d.Y)
+	main.Size=UDim2.fromOffset(s.X.Offset,h)
+	main.Position=p+UDim2.fromOffset(0,s.Y.Offset-h)
 end)
-
--- Bottom-right corner
+-- bottom-right corner
 resizeHandle(UDim2.fromOffset(14,14), UDim2.new(1,-14,1,-14), function(d,s)
-	main.Size = UDim2.fromOffset(
-		math.max(MIN_WIDTH, s.X.Offset+d.X),
-		math.max(MIN_HEIGHT, s.Y.Offset+d.Y)
-	)
+	main.Size=UDim2.fromOffset(math.max(MIN_WIDTH,s.X.Offset+d.X), math.max(MIN_HEIGHT,s.Y.Offset+d.Y))
 end)
 
 --// RIGHT ALT TOGGLE
 UIS.InputBegan:Connect(function(i,gp)
 	if gp then return end
-	if i.KeyCode == Enum.KeyCode.RightAlt then
-		gui.Enabled = not gui.Enabled
+	if i.KeyCode==Enum.KeyCode.RightAlt then
+		gui.Enabled=not gui.Enabled
 	end
 end)
