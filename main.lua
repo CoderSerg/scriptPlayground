@@ -85,7 +85,7 @@ close.Parent = title
 round(close, 6)
 
 close.MouseButton1Click:Connect(function()
-	gui.Enabled = false
+	gui.Destroy()
 end)
 
 --// EDITOR CONTAINER
@@ -123,7 +123,7 @@ editor.TextYAlignment = Enum.TextYAlignment.Top
 editor.Font = Enum.Font.Code
 editor.TextSize = 14
 editor.TextColor3 = Theme.Text
-editor.Text = "-- type code here\nprint('hello world')"
+editor.Text = ""
 editor.Parent = editorContainer
 
 --// UPDATE LINE NUMBERS
