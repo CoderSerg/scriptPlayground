@@ -1,5 +1,5 @@
--- ScriptPlayground v3.5
--- Fully Local, MacSploit-safe, plain editor with console
+-- ScriptPlayground v3.6
+-- Fully Local, MacSploit-safe, with console and line numbers
 
 --// SERVICES
 local Players = game:GetService("Players")
@@ -11,6 +11,7 @@ local playerGui = player:WaitForChild("PlayerGui")
 --// CONSTANTS
 local MIN_WIDTH = 420
 local MIN_HEIGHT = 260
+local LINE_NUM_WIDTH = 40
 
 --// THEME (Catppuccin Mocha)
 local Theme = {
@@ -18,6 +19,7 @@ local Theme = {
 	Mantle = Color3.fromRGB(24, 24, 37),
 	Crust = Color3.fromRGB(17, 17, 27),
 	Text = Color3.fromRGB(205, 214, 244),
+	Subtext = Color3.fromRGB(166, 173, 200),
 	Surface0 = Color3.fromRGB(49, 50, 68),
 	Surface1 = Color3.fromRGB(69, 71, 90),
 	Green = Color3.fromRGB(166, 227, 161),
@@ -31,7 +33,6 @@ local function round(obj, r)
 	c.Parent = obj
 end
 
--- Safe loadstring
 local SAFE_LOADSTRING = loadstring or (getgenv and getgenv().loadstring)
 
 --// GUI ROOT
@@ -87,11 +88,33 @@ close.MouseButton1Click:Connect(function()
 	gui.Enabled = false
 end)
 
---// EDITOR
+--// EDITOR CONTAINER
+local editorContainer = Instance.new("Frame")
+editorContainer.Position = UDim2.fromOffset(10, 46)
+editorContainer.Size = UDim2.new(1, -20, 0, 300)
+editorContainer.BackgroundColor3 = Theme.Crust
+editorContainer.ClipsDescendants = true
+editorContainer.Parent = main
+round(editorContainer, 10)
+
+--// LINE NUMBERS
+local lines = Instance.new("TextLabel")
+lines.Size = UDim2.new(0, LINE_NUM_WIDTH, 1, 0)
+lines.BackgroundTransparency = 1
+lines.TextXAlignment = Enum.TextXAlignment.Right
+lines.TextYAlignment = Enum.TextYAlignment.Top
+lines.Font = Enum.Font.Code
+lines.TextSize = 14
+lines.RichText = true
+lines.TextColor3 = Theme.Subtext
+lines.Text = "1"
+lines.Parent = editorContainer
+
+--// TEXTBOX (EDITOR)
 local editor = Instance.new("TextBox")
-editor.Position = UDim2.fromOffset(10, 46)
-editor.Size = UDim2.new(1, -20, 0, 300)
-editor.BackgroundColor3 = Theme.Crust
+editor.Position = UDim2.fromOffset(LINE_NUM_WIDTH, 0)
+editor.Size = UDim2.new(1, -LINE_NUM_WIDTH, 1, 0)
+editor.BackgroundTransparency = 1
 editor.ClearTextOnFocus = false
 editor.MultiLine = true
 editor.TextWrapped = false
@@ -100,15 +123,24 @@ editor.TextYAlignment = Enum.TextYAlignment.Top
 editor.Font = Enum.Font.Code
 editor.TextSize = 14
 editor.TextColor3 = Theme.Text
-editor.TextTransparency = 0 -- visible typing
 editor.Text = "-- type code here\nprint('hello world')"
-editor.Parent = main
-round(editor, 10)
+editor.Parent = editorContainer
+
+--// UPDATE LINE NUMBERS
+local function updateLines()
+	local text = editor.Text
+	local count = select(2, text:gsub("\n", "")) + 1
+	local nums = {}
+	for i = 1, count do nums[i] = tostring(i) end
+	lines.Text = table.concat(nums, "\n")
+end
+editor:GetPropertyChangedSignal("Text"):Connect(updateLines)
+updateLines()
 
 --// OUTPUT CONSOLE
 local console = Instance.new("TextLabel")
 console.Size = UDim2.new(1, -20, 0, 130)
-console.Position = UDim2.fromOffset(10, 400)
+console.Position = UDim2.fromOffset(10, 360)
 console.BackgroundColor3 = Theme.Surface0
 console.TextColor3 = Theme.Text
 console.TextXAlignment = Enum.TextXAlignment.Left
@@ -146,11 +178,7 @@ runButton.MouseButton1Click:Connect(function()
 		printConsole("loadstring not available in this thread")
 		return
 	end
-	local src = editor.Text
-	if src:byte(1) == 239 then
-		src = src:sub(4)
-	end
-	local fn, err = SAFE_LOADSTRING(src)
+	local fn, err = SAFE_LOADSTRING(editor.Text)
 	if not fn then
 		printConsole("Compile error: "..tostring(err))
 		return
@@ -196,7 +224,7 @@ local function resizeHandle(size,pos,fn)
 	h.Active = true
 	h.Parent = main
 
-	local resizing = false
+	local resizing=false
 	local startMouse, startSize, startPos
 	h.InputBegan:Connect(function(i)
 		if i.UserInputType==Enum.UserInputType.MouseButton1 then
