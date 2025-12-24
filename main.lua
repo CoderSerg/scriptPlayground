@@ -85,7 +85,7 @@ close.Parent = title
 round(close, 6)
 
 close.MouseButton1Click:Connect(function()
-	gui.Destroy()
+	gui:Destroy()
 end)
 
 --// EDITOR CONTAINER
