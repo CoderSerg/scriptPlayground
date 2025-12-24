@@ -1,4 +1,4 @@
--- ScriptPlayground v3.2
+-- ScriptPlayground v3.3
 -- Fully Local, MacSploit-safe, with console
 
 --// SERVICES
@@ -148,8 +148,9 @@ input.Parent = editor
 
 --// SYNTAX HIGHLIGHTING
 local keywords = {
-	local=true,function=true,end=true,if=true,then=true,else=true,
-	elseif=true,for=true,while=true,do=true,return=true,true=true,false=true,nil=true
+	["local"]=true, ["function"]=true, ["end"]=true, ["if"]=true, ["then"]=true, ["else"]=true,
+	["elseif"]=true, ["for"]=true, ["while"]=true, ["do"]=true, ["return"]=true,
+	["true"]=true, ["false"]=true, ["nil"]=true
 }
 
 local function color(text, c)
@@ -175,7 +176,9 @@ local function update()
 	highlight.Text = highlightLua(text)
 	local count = select(2, text:gsub("\n", "")) + 1
 	local nums = {}
-	for i = 1, count do nums[i] = tostring(i) end
+	for i = 1, count do
+		nums[i] = tostring(i)
+	end
 	lines.Text = table.concat(nums, "\n")
 end
 
@@ -200,7 +203,9 @@ round(console, 6)
 
 local function printConsole(...)
 	local msgs = {}
-	for i,v in ipairs({...}) do msgs[#msgs+1] = tostring(v) end
+	for i, v in ipairs({...}) do
+		msgs[#msgs+1] = tostring(v)
+	end
 	console.Text = table.concat(msgs,"\t") .. "\n" .. console.Text
 end
 
@@ -221,7 +226,12 @@ runButton.MouseButton1Click:Connect(function()
 		printConsole("loadstring not available in this thread")
 		return
 	end
-	local fn, err = SAFE_LOADSTRING(input.Text)
+	local src = input.Text
+	-- strip BOM just in case
+	if src:byte(1) == 239 then
+		src = src:sub(4)
+	end
+	local fn, err = SAFE_LOADSTRING(src)
 	if not fn then
 		printConsole("Compile error: "..tostring(err))
 		return
@@ -260,64 +270,64 @@ end
 
 --// RESIZING
 local function resizeHandle(size,pos,fn)
-	local h=Instance.new("Frame")
-	h.Size=size
-	h.Position=pos
-	h.BackgroundTransparency=1
-	h.Active=true
-	h.Parent=main
+	local h = Instance.new("Frame")
+	h.Size = size
+	h.Position = pos
+	h.BackgroundTransparency = 1
+	h.Active = true
+	h.Parent = main
 
-	local resizing=false
+	local resizing = false
 	local startMouse, startSize, startPos
 	h.InputBegan:Connect(function(i)
-		if i.UserInputType==Enum.UserInputType.MouseButton1 then
-			resizing=true
-			startMouse=i.Position
-			startSize=main.Size
-			startPos=main.Position
+		if i.UserInputType == Enum.UserInputType.MouseButton1 then
+			resizing = true
+			startMouse = i.Position
+			startSize = main.Size
+			startPos = main.Position
 		end
 	end)
 	UIS.InputChanged:Connect(function(i)
-		if resizing and i.UserInputType==Enum.UserInputType.MouseMovement then
-			fn(i.Position-startMouse,startSize,startPos)
+		if resizing and i.UserInputType == Enum.UserInputType.MouseMovement then
+			fn(i.Position-startMouse, startSize, startPos)
 		end
 	end)
 	UIS.InputEnded:Connect(function(i)
-		if i.UserInputType==Enum.UserInputType.MouseButton1 then
-			resizing=false
+		if i.UserInputType == Enum.UserInputType.MouseButton1 then
+			resizing = false
 		end
 	end)
 end
 
 -- right
 resizeHandle(UDim2.new(0,6,1,-20), UDim2.new(1,-3,0,10), function(d,s)
-	main.Size=UDim2.fromOffset(math.max(MIN_WIDTH,s.X.Offset+d.X),s.Y.Offset)
+	main.Size = UDim2.fromOffset(math.max(MIN_WIDTH, s.X.Offset+d.X), s.Y.Offset)
 end)
 -- bottom
 resizeHandle(UDim2.new(1,-20,0,6), UDim2.new(0,10,1,-3), function(d,s)
-	main.Size=UDim2.fromOffset(s.X.Offset, math.max(MIN_HEIGHT,s.Y.Offset+d.Y))
+	main.Size = UDim2.fromOffset(s.X.Offset, math.max(MIN_HEIGHT, s.Y.Offset+d.Y))
 end)
 -- left
 resizeHandle(UDim2.new(0,6,1,-20), UDim2.new(0,-3,0,10), function(d,s,p)
-	local w=math.max(MIN_WIDTH,s.X.Offset-d.X)
-	main.Size=UDim2.fromOffset(w,s.Y.Offset)
-	main.Position=p+UDim2.fromOffset(s.X.Offset-w,0)
+	local w = math.max(MIN_WIDTH, s.X.Offset-d.X)
+	main.Size = UDim2.fromOffset(w, s.Y.Offset)
+	main.Position = p + UDim2.fromOffset(s.X.Offset-w, 0)
 end)
 -- top
 resizeHandle(UDim2.new(1,-20,0,6), UDim2.new(0,10,0,-3), function(d,s,p)
-	local h=math.max(MIN_HEIGHT,s.Y.Offset-d.Y)
-	main.Size=UDim2.fromOffset(s.X.Offset,h)
-	main.Position=p+UDim2.fromOffset(0,s.Y.Offset-h)
+	local h = math.max(MIN_HEIGHT, s.Y.Offset-d.Y)
+	main.Size = UDim2.fromOffset(s.X.Offset, h)
+	main.Position = p + UDim2.fromOffset(0, s.Y.Offset-h)
 end)
 -- bottom-right corner
 resizeHandle(UDim2.fromOffset(14,14), UDim2.new(1,-14,1,-14), function(d,s)
-	main.Size=UDim2.fromOffset(math.max(MIN_WIDTH,s.X.Offset+d.X), math.max(MIN_HEIGHT,s.Y.Offset+d.Y))
+	main.Size = UDim2.fromOffset(math.max(MIN_WIDTH, s.X.Offset+d.X), math.max(MIN_HEIGHT, s.Y.Offset+d.Y))
 end)
 
 --// RIGHT ALT TOGGLE
 UIS.InputBegan:Connect(function(i,gp)
 	if gp then return end
-	if i.KeyCode==Enum.KeyCode.RightAlt then
-		gui.Enabled=not gui.Enabled
+	if i.KeyCode == Enum.KeyCode.RightAlt then
+		gui.Enabled = not gui.Enabled
 	end
 end)
