@@ -1,10 +1,9 @@
--- ScriptPlayground v3.3
--- Fully Local, MacSploit-safe, with console
+-- ScriptPlayground v3.5
+-- Fully Local, MacSploit-safe, plain editor with console
 
 --// SERVICES
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -19,16 +18,10 @@ local Theme = {
 	Mantle = Color3.fromRGB(24, 24, 37),
 	Crust = Color3.fromRGB(17, 17, 27),
 	Text = Color3.fromRGB(205, 214, 244),
-	Subtext = Color3.fromRGB(166, 173, 200),
 	Surface0 = Color3.fromRGB(49, 50, 68),
 	Surface1 = Color3.fromRGB(69, 71, 90),
-	Accent = Color3.fromRGB(137, 180, 250),
 	Green = Color3.fromRGB(166, 227, 161),
 	Red = Color3.fromRGB(243, 139, 168),
-	Keyword = Color3.fromRGB(203, 166, 247),
-	String = Color3.fromRGB(244, 219, 214),
-	Number = Color3.fromRGB(250, 179, 135),
-	Comment = Color3.fromRGB(108, 112, 134),
 }
 
 --// HELPERS
@@ -38,7 +31,7 @@ local function round(obj, r)
 	c.Parent = obj
 end
 
--- Cache loadstring safely (works in Raptor.Thread / MacSploit)
+-- Safe loadstring
 local SAFE_LOADSTRING = loadstring or (getgenv and getgenv().loadstring)
 
 --// GUI ROOT
@@ -94,101 +87,28 @@ close.MouseButton1Click:Connect(function()
 	gui.Enabled = false
 end)
 
---// EDITOR CONTAINER
-local editor = Instance.new("Frame")
+--// EDITOR
+local editor = Instance.new("TextBox")
 editor.Position = UDim2.fromOffset(10, 46)
 editor.Size = UDim2.new(1, -20, 0, 300)
 editor.BackgroundColor3 = Theme.Crust
+editor.ClearTextOnFocus = false
+editor.MultiLine = true
+editor.TextWrapped = false
+editor.TextXAlignment = Enum.TextXAlignment.Left
+editor.TextYAlignment = Enum.TextYAlignment.Top
+editor.Font = Enum.Font.Code
+editor.TextSize = 14
+editor.TextColor3 = Theme.Text
+editor.TextTransparency = 0 -- visible typing
+editor.Text = "-- type code here\nprint('hello world')"
 editor.Parent = main
-editor.ClipsDescendants = true
 round(editor, 10)
-
---// LINE NUMBERS
-local lines = Instance.new("TextLabel")
-lines.Size = UDim2.new(0, 42, 1, 0)
-lines.BackgroundColor3 = Theme.Mantle
-lines.TextXAlignment = Enum.TextXAlignment.Right
-lines.TextYAlignment = Enum.TextYAlignment.Top
-lines.Font = Enum.Font.Code
-lines.TextSize = 14
-lines.RichText = true
-lines.TextColor3 = Theme.Subtext
-lines.Text = "1"
-lines.Parent = editor
-
---// HIGHLIGHT LAYER
-local highlight = Instance.new("TextLabel")
-highlight.Position = UDim2.fromOffset(48, 6)
-highlight.Size = UDim2.new(1, -54, 1, -12)
-highlight.BackgroundTransparency = 1
-highlight.TextXAlignment = Enum.TextXAlignment.Left
-highlight.TextYAlignment = Enum.TextYAlignment.Top
-highlight.Font = Enum.Font.Code
-highlight.TextSize = 14
-highlight.RichText = true
-highlight.TextWrapped = false
-highlight.TextColor3 = Theme.Text
-highlight.Parent = editor
-
---// INPUT LAYER
-local input = Instance.new("TextBox")
-input.Position = highlight.Position
-input.Size = highlight.Size
-input.BackgroundTransparency = 1
-input.ClearTextOnFocus = false
-input.MultiLine = true
-input.TextWrapped = false
-input.TextXAlignment = Enum.TextXAlignment.Left
-input.TextYAlignment = Enum.TextYAlignment.Top
-input.Font = Enum.Font.Code
-input.TextSize = 14
-input.TextTransparency = 1
-input.Text = "-- type code here\nprint('hello world')"
-input.Parent = editor
-
---// SYNTAX HIGHLIGHTING
-local keywords = {
-	["local"]=true, ["function"]=true, ["end"]=true, ["if"]=true, ["then"]=true, ["else"]=true,
-	["elseif"]=true, ["for"]=true, ["while"]=true, ["do"]=true, ["return"]=true,
-	["true"]=true, ["false"]=true, ["nil"]=true
-}
-
-local function color(text, c)
-	return string.format('<font color="rgb(%d,%d,%d)">%s</font>', c.R*255, c.G*255, c.B*255, text)
-end
-
-local function highlightLua(src)
-	src = src:gsub("&","&amp;"):gsub("<","&lt;"):gsub(">","&gt;")
-	src = src:gsub("%-%-.-\n", function(m) return color(m, Theme.Comment) end)
-	src = src:gsub("\".-\"", function(m) return color(m, Theme.String) end)
-	src = src:gsub("%d+", function(m) return color(m, Theme.Number) end)
-	src = src:gsub("%a+", function(m)
-		if keywords[m] then
-			return color(m, Theme.Keyword)
-		end
-		return m
-	end)
-	return src
-end
-
-local function update()
-	local text = input.Text
-	highlight.Text = highlightLua(text)
-	local count = select(2, text:gsub("\n", "")) + 1
-	local nums = {}
-	for i = 1, count do
-		nums[i] = tostring(i)
-	end
-	lines.Text = table.concat(nums, "\n")
-end
-
-input:GetPropertyChangedSignal("Text"):Connect(update)
-update()
 
 --// OUTPUT CONSOLE
 local console = Instance.new("TextLabel")
 console.Size = UDim2.new(1, -20, 0, 130)
-console.Position = UDim2.fromOffset(10, 360)
+console.Position = UDim2.fromOffset(10, 400)
 console.BackgroundColor3 = Theme.Surface0
 console.TextColor3 = Theme.Text
 console.TextXAlignment = Enum.TextXAlignment.Left
@@ -203,7 +123,7 @@ round(console, 6)
 
 local function printConsole(...)
 	local msgs = {}
-	for i, v in ipairs({...}) do
+	for i,v in ipairs({...}) do
 		msgs[#msgs+1] = tostring(v)
 	end
 	console.Text = table.concat(msgs,"\t") .. "\n" .. console.Text
@@ -212,7 +132,7 @@ end
 --// RUN BUTTON
 local runButton = Instance.new("TextButton")
 runButton.Size = UDim2.fromOffset(100, 30)
-runButton.Position = UDim2.new(1, -110, 0, 10)
+runButton.Position = UDim2.fromOffset(510, 360) -- below editor
 runButton.BackgroundColor3 = Theme.Green
 runButton.Text = "Run"
 runButton.Font = Enum.Font.SourceSansBold
@@ -226,8 +146,7 @@ runButton.MouseButton1Click:Connect(function()
 		printConsole("loadstring not available in this thread")
 		return
 	end
-	local src = input.Text
-	-- strip BOM just in case
+	local src = editor.Text
 	if src:byte(1) == 239 then
 		src = src:sub(4)
 	end
@@ -280,21 +199,21 @@ local function resizeHandle(size,pos,fn)
 	local resizing = false
 	local startMouse, startSize, startPos
 	h.InputBegan:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			resizing = true
-			startMouse = i.Position
-			startSize = main.Size
-			startPos = main.Position
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			resizing=true
+			startMouse=i.Position
+			startSize=main.Size
+			startPos=main.Position
 		end
 	end)
 	UIS.InputChanged:Connect(function(i)
-		if resizing and i.UserInputType == Enum.UserInputType.MouseMovement then
-			fn(i.Position-startMouse, startSize, startPos)
+		if resizing and i.UserInputType==Enum.UserInputType.MouseMovement then
+			fn(i.Position-startMouse,startSize,startPos)
 		end
 	end)
 	UIS.InputEnded:Connect(function(i)
-		if i.UserInputType == Enum.UserInputType.MouseButton1 then
-			resizing = false
+		if i.UserInputType==Enum.UserInputType.MouseButton1 then
+			resizing=false
 		end
 	end)
 end
